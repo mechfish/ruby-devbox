@@ -33,6 +33,7 @@
       apt: pkg={{ item }} state=latest
       with_items:
         - build-essential
+        - nodejs
         - git
         - libsqlite3-dev
         - emacs24-nox
