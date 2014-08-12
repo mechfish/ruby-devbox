@@ -1,0 +1,47 @@
+  # Make all Ubuntu boxes look alike by ensuring they have a "login"
+  # user with sudo privileges. Since stock Ubuntu installs tend to have
+  # an 'ubuntu' user, just use that username by default.
+  #
+  # This is particularly important on Digital Ocean, where the boxes
+  # come only with a stock 'root' user that we don't want to use
+  # directly. (We don't log in as root to prevent accidents, and
+  # because uses of 'sudo' can be logged and/or monitored.)
+---
+- hosts: all
+  sudo: yes
+  remote_user: "{{ initial_user }}"
+  vars:
+    login_user_name: ubuntu
+    # Supply the paths of the SSH keys that you want to install for
+    # this login user.
+    login_ssh_key_local_paths:
+      - "~/.ssh/id_rsa.pub"
+  tasks:
+    - name: Ensure login user exists.
+      user:
+        name: "{{ login_user_name }}"
+        shell: "/bin/bash"
+        comment: "Ubuntu"
+
+    - name: Set SSH keys for login user.
+      authorized_key:
+        user: "{{ login_user_name }}"
+        key: "{{ lookup('file', item) }}"
+      with_items: login_ssh_key_local_paths
+
+    - name: Ensure that sudoers.d is in use.
+      lineinfile:
+        state: present
+        dest: /etc/sudoers
+        regexp: "^#includedir /etc/sudoers.d"
+        line: "#includedir /etc/sudoers.d"
+        backup: yes
+
+    - name: Permit login user to execute sudo without a password.
+      copy:
+        content: "%{{ login_user_name }} ALL=(ALL) NOPASSWD:ALL"
+        dest: "/etc/sudoers.d/{{ login_user_name }}"
+        owner: root
+        group: root
+        mode: 0440
+

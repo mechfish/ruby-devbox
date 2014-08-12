@@ -1,0 +1,143 @@
+---
+- hosts: all
+  sudo: yes
+  remote_user: ubuntu
+  vars:
+    apt_cache_time: 14400
+
+    # In this application - building stock development instances - we
+    # default to trying to upgrade Ubuntu packages on every Ansible
+    # run.
+    upgrade_packages: true
+
+    # Declare an array of the ports you want open in the firewall,
+    # in a format like this:
+    #
+    # firewall_ports:
+    #   - rule: allow
+    #     port: 80
+    #     proto: tcp
+    #
+    firewall_ports:
+      - rule: allow
+        port: 3000
+        proto: tcp
+
+  tasks:
+    - name: Upgrade Ubuntu packages.
+      apt:
+        upgrade: dist
+        update_cache: true
+        cache_valid_time: "{{ apt_cache_time }}"
+      when: upgrade_packages
+      tags: [ linux ]
+
+    - name: Install useful Ubuntu packages.
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - build-essential
+        - git
+        - libsqlite3-dev
+        - emacs24-nox
+        - screen
+        - tmux
+        - curl
+      tags: [ linux ]
+
+    - name: Configure Brightbox Ruby apt repo.
+      apt_repository: repo="ppa:brightbox/ruby-ng"
+      tags: [ ruby ]
+
+    - name: Install Ruby packages.
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - ruby2.1
+        - ruby2.1-dev
+      tags: [ ruby ]
+
+    - name: Install bundler.
+      gem: name=bundler state=latest user_install=no
+      tags: [ ruby ]
+
+    - name: Install Rails and other gems.
+      gem: name={{ item }} state=latest user_install=no
+      with_items:
+        - rails
+        - coffee-rails
+        - jbuilder
+        - jquery-rails
+        - nokogiri
+        - rspec
+        - sass-rails
+        - sdoc
+        - spring
+        - sqlite3
+        - state_machine
+        - turbolinks
+        - uglifier
+      tags: [ ruby, rails ]
+
+    # Security stuff      
+    - name: Set SSH daemon configuration.
+      template:
+        src: templates/sshd_config.j2
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: 0640
+      notify: restart sshd
+      tags: [ security ]
+
+    - name: Install ufw.
+      apt: pkg={{ item }} state=installed update_cache=true cache_valid_time={{ apt_cache_time }}
+      with_items:
+        - ufw
+      notify: restart ufw ensuring ssh open
+      tags: [ security ]
+
+    - name: Set ufw configuration.
+      template:
+        src: templates/ufw.j2
+        dest: /etc/default/ufw
+        owner: root
+        group: root
+        mode: 0640
+      notify: restart ufw ensuring ssh open
+      tags: [ security ]
+
+    - name: Ensure that UFW leaves SSH open.
+      ufw:
+        rule: allow
+        port: ssh
+        proto: tcp
+      tags: [ security ]
+
+    - name: Enable UFW and ensure it comes up on reboot.
+      ufw: state=enabled
+      tags: [ security ]
+        
+    - name: Adjust specified ports via UFW.
+      ufw: rule={{ item.rule }} port={{ item.port }} proto={{ item.proto }}
+      with_items: firewall_ports
+      notify: restart ufw ensuring ssh open
+      tags: [ security ]
+
+      # Execute this before the 'service' task below.
+    - name: Apply config changes now to prevent a start-restart stutter.
+      meta: flush_handlers
+      tags: [ security ]
+
+    - name: Ensure sshd comes up on reboot.
+      service: name=ssh state=started enabled=yes
+      tags: [ security ]
+
+  handlers:
+    - name: restart sshd
+      service: name=ssh state=restarted
+      
+    - name: restart ufw ensuring ssh open
+      ufw:
+        rule: allow
+        port: ssh
+        proto: tcp
+        state: reloaded
