@@ -20,7 +20,7 @@ an SSH key for Digital Ocean anyway...
 - Install [Vagrant](http://www.vagrantup.com).
 - Install [Ansible](http://docs.ansible.com/intro_installation.html#installing-the-control-machine). e.g. on the Mac with Homebrew: `brew update`, `brew install ansible`.
 
-- `git clone [path to this repo]`
+- `git clone https://github.com/mechfish/ruby-devbox.git`
 - `cd ruby-devbox`
 - `vagrant up`
 - `vagrant ssh` to connect to the box.
@@ -38,7 +38,7 @@ an SSH key for Digital Ocean anyway...
     ssh root@[IP address]
     ```
 
-- `git clone [path to this repo]`
+- `git clone https://github.com/mechfish/ruby-devbox.git`
 
 - `cd ruby-devbox`
 
