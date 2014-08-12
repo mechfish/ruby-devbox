@@ -18,10 +18,7 @@
     #     port: 80
     #     proto: tcp
     #
-    firewall_ports:
-      - rule: allow
-        port: 3000
-        proto: tcp
+    firewall_ports: []
 
   tasks:
     - name: Upgrade Ubuntu packages.
